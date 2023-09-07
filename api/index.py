@@ -11,7 +11,8 @@ app = Flask(__name__)
 def cron_job(fullname):
     query = f"site:linkedin.com {fullname} profile"
     result = []
-    with DDGS(proxies= os.getenv('RESIDENTIAL_PROXY_URL'),timeout=30) as ddgs:
+    with DDGS() as ddgs:
+    # with DDGS(proxies= os.getenv('RESIDENTIAL_PROXY_URL'),timeout=30) as ddgs:
         try:
             keywords = query
             ddgs_images_gen = ddgs.images(
@@ -28,6 +29,7 @@ def cron_job(fullname):
             for r in ddgs_images_gen:
                 if 'linkedin.com/in' in r['url']:
                     result.append(r)
+                    # print(r)
                     # count += 1
                     # if count > 10:
                     #     break
@@ -47,10 +49,11 @@ def connect_mongo():
     except Exception:
         print('Unable to connect to MongoDB.')
 
-
+result = cron_job("Michael Bage")
+print(len(result))
 @app.route('/')
 def home():
-    result = cron_job("Michael")
+    result = cron_job("Michael Bage")
     return jsonify(result)
 
 @app.route('/about')
