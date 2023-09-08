@@ -189,10 +189,10 @@ class MongoDBConnector:
         return False
 
 
-def save_profiles(data: dict):
+def save_image_profiles(data: dict):
     """Save the scraped data to MongoDB."""
     def save(data):
         with MongoDBConnector() as connector:
-            connector.bulk_upsert('profiles', data)
+            connector.bulk_upsert_updated('serp_result_image',data,'url')
     mongo_thread = threading.Thread(target=save, args=(data,), name='MongoDB')
     mongo_thread.start()

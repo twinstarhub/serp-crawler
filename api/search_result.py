@@ -3,7 +3,7 @@ import json
 import random
 import threading
 from duckduckgo_search import DDGS
-from mongo import MongoDBConnector
+from mongo import MongoDBConnector,save_image_profiles
 from cacher import Cacher
 class SearchResult:
     def __init__(self):
@@ -66,33 +66,22 @@ class SearchResult:
 
     async def run(self):
         name_generator = SearchResult.generate_name()
-        for _ in range(10000):
-            random_name = next(name_generator)
-            print("_________________________________________")
-            combined_key = f"{random_name.lower()}:{'linkedin'}"
-            
-            async with self.cacher as cacher:
-                result = await cacher.get([combined_key]) or {}
+        with MongoDBConnector() as connector:
+            for _ in range(10000):
+                random_name = next(name_generator)
+                print("_________________________________________")
+                combined_key = f"{random_name.lower()}:{'linkedin'}"
+                async with self.cacher as cacher:
+                    result = await cacher.get([combined_key]) or {}
 
-                if result:
-                    print("ERROR : repeated")
-                    continue
+                    if result:
+                        print("ERROR : repeated")
+                        continue
 
-                else : 
-                    result = SearchResult.search_image(random_name)
-                    def save(data):
-                        with MongoDBConnector() as connector:
-                            connector.bulk_upsert_updated('serp_result_image',data,'url')
-
-                        connector.disconnect()
-                        
-                    mongo_thread = threading.Thread(target=save, args=(result,), name='MongoDB')
-                    mongo_thread.start()
-
-                    # with MongoDBConnector() as connector:
-                    #     connector.bulk_upsert_updated('serp_result_image',result,'url')
-                        
-                    await cacher.insert(combined_key, True)
+                    else : 
+                        result = SearchResult.search_image(random_name)
+                        connector.bulk_upsert_updated('serp_result_image',result,'url')
+                        await cacher.insert(combined_key, True)
         return True
 
 # Example usage
