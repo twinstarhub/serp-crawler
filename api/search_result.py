@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import threading
 from duckduckgo_search import DDGS
 from mongo import MongoDBConnector
 from cacher import Cacher
@@ -79,8 +80,18 @@ class SearchResult:
 
                 else : 
                     result = SearchResult.search_image(random_name)
-                    with MongoDBConnector() as connector:
-                        connector.bulk_upsert_updated('serp_result_image',result,'url')
+                    def save(data):
+                        with MongoDBConnector() as connector:
+                            connector.bulk_upsert_updated('serp_result_image',data,'url')
+
+                        connector.disconnect()
+                        
+                    mongo_thread = threading.Thread(target=save, args=(result,), name='MongoDB')
+                    mongo_thread.start()
+
+                    # with MongoDBConnector() as connector:
+                    #     connector.bulk_upsert_updated('serp_result_image',result,'url')
+                        
                     await cacher.insert(combined_key, True)
         return True
 
