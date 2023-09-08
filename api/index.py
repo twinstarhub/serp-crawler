@@ -1,4 +1,5 @@
 import os
+import time
 from flask import Flask,jsonify
 from duckduckgo_search import DDGS
 
@@ -6,13 +7,14 @@ from pymongo import MongoClient, UpdateOne
 from pymongo.server_api import ServerApi
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
+from mongo import MongoDBConnector
+
 app = Flask(__name__)
 
-def cron_job(fullname):
+def scrap_serp_image(fullname):
     query = f"site:linkedin.com {fullname} profile"
     result = []
-    with DDGS() as ddgs:
-    # with DDGS(proxies= os.getenv('RESIDENTIAL_PROXY_URL'),timeout=30) as ddgs:
+    with DDGS(proxies= os.getenv('RESIDENTIAL_PROXY_URL'),timeout=30) as ddgs:
         try:
             keywords = query
             ddgs_images_gen = ddgs.images(
@@ -29,31 +31,25 @@ def cron_job(fullname):
             for r in ddgs_images_gen:
                 if 'linkedin.com/in' in r['url']:
                     result.append(r)
-                    # print(r)
-                    # count += 1
-                    # if count > 10:
-                    #     break
 
         except Exception as ex:
             print(str(ex))
     return result
+st_time = time.monotonic()
+print('start')
+result = scrap_serp_image("Michael Bage")
 
+with MongoDBConnector() as connector:
+    connector.bulk_upsert_updated('serp_result_image',result,'url')
+print('end')
+print(f"Updated in [{time.monotonic() - st_time:.2f}]s")
 
-def connect_mongo():
-    """Connect to MongoDB."""
-    uri = f"mongodb+srv://{os.getenv('MONGO_USERNAME', None)}:{os.getenv('MONGO_PASSWORD', None)}@{os.getenv('MONGO_HOST', 'localhost')}/?retryWrites=true&w=majority"
-    try:
-        client = MongoClient(uri, server_api=ServerApi('1'))
-        print('Connect to MongoDB.')
-
-    except Exception:
-        print('Unable to connect to MongoDB.')
-
-result = cron_job("Michael Bage")
-print(len(result))
 @app.route('/')
 def home():
-    result = cron_job("Michael Bage")
+    result = scrap_serp_image("Henry James")
+
+    with MongoDBConnector() as connector:
+        connector.bulk_upsert_updated('usernames',data,'username')
     return jsonify(result)
 
 @app.route('/about')
