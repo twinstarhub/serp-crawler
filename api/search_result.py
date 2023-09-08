@@ -2,8 +2,9 @@ import os
 import json
 import random
 import threading
+import asyncio
 from duckduckgo_search import DDGS
-from mongo import MongoDBConnector,save_image_profiles
+from mongo import MongoDBConnector
 from cacher import Cacher
 class SearchResult:
     def __init__(self):
@@ -12,6 +13,8 @@ class SearchResult:
                 port=os.getenv('REDIS_PORT', 6379),
                 password=os.getenv('REDIS_PASSWORD', None)
             )
+            
+        self.stop_signal = asyncio.Event()  # Create an event to signal when to stop
     
     
     @staticmethod
@@ -66,33 +69,48 @@ class SearchResult:
 
     async def run(self):
         name_generator = SearchResult.generate_name()
-        with MongoDBConnector() as connector:
+
+        mongo_connector = MongoDBConnector()
+    
+        async with self.cacher as cacher:
             for _ in range(10000):
+                if self.stop_signal.is_set():
+                    break  # Exit the loop if the stop signal is set
                 random_name = next(name_generator)
                 print("_________________________________________")
                 combined_key = f"{random_name.lower()}:{'linkedin'}"
-                async with self.cacher as cacher:
-                    result = await cacher.get([combined_key]) or {}
+                
+                result = await cacher.get([combined_key]) or {}
 
-                    if result:
-                        print("ERROR : repeated")
-                        continue
+                if result:
+                    print("ERROR : repeated")
+                    continue
 
-                    else : 
-                        result = SearchResult.search_image(random_name)
-                        connector.bulk_upsert_updated('serp_result_image',result,'url')
-                        await cacher.insert(combined_key, True)
+                else : 
+                    result = SearchResult.search_image(random_name)
+                    with mongo_connector as connector:
+                        connector.bulk_upsert_updated('serp_result_image', result, 'url')
+                    await cacher.insert(combined_key, True)
         return True
+    def stop(self):
+        self.stop_signal.set()  # Set the stop signal to indicate that the loop should stop
 
 # Example usage
 async def main():
     search_result = SearchResult()
-    result = await search_result.run()
-    return result
+    loop = asyncio.get_event_loop()
+
+    # Start the loop in the background
+    loop.create_task(search_result.run())
+
+    # Simulate a signal to stop the loop after a certain delay
+    await asyncio.sleep(10000)  # Replace with your actual signal handling logic
+    search_result.stop()  # Set the stop signal to stop the loop
+
 
 
 if __name__ == "__main__":
-    import asyncio
+    import os
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
