@@ -3,9 +3,11 @@ import json
 import random
 import threading
 import asyncio
+
 from duckduckgo_search import DDGS
 from mongo import MongoDBConnector
 from cacher import Cacher
+from filter import twitter_filter
 class SearchResult:
     def __init__(self):
         self.cacher = Cacher(
@@ -41,7 +43,7 @@ class SearchResult:
 
     @staticmethod
     def search_image(fullname):
-        query = f"site:linkedin.com {fullname} profile"
+        query = f"site:twitter.com {fullname} profile"
         result = []
         with DDGS(proxies= os.getenv('RESIDENTIAL_PROXY_URL'),timeout=30) as ddgs:
             try:
@@ -58,9 +60,9 @@ class SearchResult:
                 )
                 count = 0
                 for r in ddgs_images_gen:
-                    if 'linkedin.com/in' in r['url']:
-                        r["platform"] = "linkedin"
+                    if twitter_filter(r['url']):
                         result.append(r)
+                        r["platform"] = "twitter"
 
             except Exception as ex:
                 print(str(ex))
@@ -73,12 +75,12 @@ class SearchResult:
         mongo_connector = MongoDBConnector()
     
         async with self.cacher as cacher:
-            for _ in range(10000):
+            for _ in range(100000):
                 if self.stop_signal.is_set():
                     break  # Exit the loop if the stop signal is set
                 random_name = next(name_generator)
                 print("_________________________________________")
-                combined_key = f"{random_name.lower()}:{'linkedin'}"
+                combined_key = f"{random_name.lower()}:{'twitter'}"
                 
                 result = await cacher.get([combined_key]) or {}
 
@@ -104,7 +106,7 @@ async def main():
     loop.create_task(search_result.run())
 
     # Simulate a signal to stop the loop after a certain delay
-    await asyncio.sleep(10000)  # Replace with your actual signal handling logic
+    await asyncio.sleep(1000000)  # Replace with your actual signal handling logic
     search_result.stop()  # Set the stop signal to stop the loop
 
 
