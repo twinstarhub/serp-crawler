@@ -1,0 +1,24 @@
+{
+    "twitter": [
+        "site:twitter.com $query"
+    ],
+    "reddit": [
+        "site:reddit.com/user/ $query"
+    ],
+    "facebook": [
+        "site:facebook.com $query",
+        "site:facebook.com/people $query"
+    ],
+    "linkedin": [
+        "site:linkedin.com/in/ $query"
+    ],
+    "tiktok": [
+        "site:tiktok.com @$query"
+    ],
+    "instagram": [
+        "site:instagram.com $query"
+    ],
+    "pinterest": [
+        "site:pinterest.com $query profile"
+    ]
+}
