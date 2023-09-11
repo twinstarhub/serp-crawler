@@ -139,7 +139,7 @@ def run_worker(target):
 
 def main():
     max_processes = 10  # Adjust this based on your needs
-    targets = ["facebook","linkedin", "twitter", "tiktok","instagram","pinterest"]
+    targets = ["facebook","linkedin", "twitter", "tiktok","instagram","pinterest","reddit","quora","badoo","snapchat"]
     with concurrent.futures.ProcessPoolExecutor(max_processes) as executor:
         # Submit each task to the process pool
         results = [executor.submit(run_worker,target) for target in targets]

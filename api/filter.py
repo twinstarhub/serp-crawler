@@ -53,17 +53,35 @@ def tiktok_filter(url):
         return True
     else:
         return False
-    
-def reddit_filter(url):
+
+def medium_filter(url):
     # Parse the URL
     # site:tiktok.com @michael bage
     parsed_url = urlparse(url)
     # Separating the parts
+    scheme = parsed_url.scheme  # https
+    netloc = parsed_url.netloc  # twitter.com
     path = parsed_url.path      # /MichaelBagford/status/1397521783243382785
 
     # Split the path into a list
     path_components = path.split('/')
-    if len(path_components) == 3 and path_components[1]=='user':
+    if len(path_components) == 2 and '@' in path_components[1]:
+        return True
+    else:
+        return False
+    
+def reddit_filter(url):
+    # Parse the URL
+    parsed_url = urlparse(url)
+
+    # Separating the parts
+    scheme = parsed_url.scheme  # https
+    netloc = parsed_url.netloc  # reddit.com
+    path = parsed_url.path      # /user/michael
+
+    # Split the path into a list
+    path_components = path.split('/')
+    if len(path_components) == 4 and 'user' in path_components[1]:
         return True
     else:
         return False
@@ -113,6 +131,9 @@ def linkedin_filter(url):
     else:
         return False
 
+def no_filter(url):
+    return True
+
 # Create a dictionary to map platform names to filter functions
 platform_filters = {
     'twitter': twitter_filter,
@@ -121,7 +142,11 @@ platform_filters = {
     'tiktok': tiktok_filter,
     'instagram':general_filter,
     'pinterest':pinterest_filter,
-    'reddit':general_filter
+    'reddit':reddit_filter,
+    'medium': medium_filter,
+    'quora': no_filter,
+    'badoo': no_filter,
+    'snapchat': no_filter
 }
 
 def specialized_filter(url,platform_name):

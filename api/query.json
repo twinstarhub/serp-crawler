@@ -20,5 +20,20 @@
     ],
     "pinterest": [
         "site:pinterest.com $query profile"
+    ],
+    "quora": [
+        "site:quora.com/profile $query"
+    ],
+    "medium": [
+        "site:medium.com @$query profile"
+    ],
+    "badoo": [
+        "site:badoo.com/profile $query"
+    ],
+    "snapchat": [
+        "site:snapchat.com/add $query"
+    ],
+    "nextdoor": [
+        "site:nextdoor.com/pages $query"
     ]
 }
