@@ -1,5 +1,6 @@
 import os
 import json
+import csv
 import random
 import concurrent.futures
 from duckduckgo_search import DDGS
@@ -7,10 +8,11 @@ from mongo import MongoDBConnector
 from synccacher import Cacher
 from filter import specialized_filter
 
-script_dir = os.path.dirname(__file__)  # Get the directory of the current script
+# Get the directory of the current script
+script_dir = os.path.dirname(__file__)
 json_path = os.path.join(script_dir, 'query.json')
 
-with open(json_path,'r') as fp:
+with open(json_path, 'r') as fp:
     query_schema = json.load(fp)
 
 
@@ -21,6 +23,19 @@ class SearchResult:
             port=os.getenv('REDIS_PORT', 6379),
             password=os.getenv('REDIS_PASSWORD', None)
         )
+
+    @staticmethod
+    def generate_name_special(index_log):
+        script_dir = os.path.dirname(__file__)
+        # Start from Sweden Nordic names
+        name_csv_file = os.path.join(script_dir, 'resource/SE.csv')
+
+        with open(name_csv_file, 'r', encoding="utf-8") as csv_file:
+            csv_reader = csv.reader(csv_file)
+
+            for index, row in enumerate(list(csv_reader)[index_log:]):
+                full_name = f"{row[0]} {row[1]}"
+                yield full_name, index+index_log
 
     @staticmethod
     def generate_name():
@@ -43,9 +58,9 @@ class SearchResult:
             full_name = f"{first_name} {last_name}"
 
             yield full_name
-    
+
     @staticmethod
-    def search_query_platform(fullname:str,platform):
+    def search_query_platform(fullname: str, platform):
         """
         One query per one platform search 
 
@@ -58,14 +73,14 @@ class SearchResult:
             "http://": os.getenv('ZENROWS_PROXY_URL'),
             "https://": os.getenv('ZENROWS_PROXY_URL'),
         }
-        
+
         try:
-            with DDGS(proxies = proxies, timeout=30) as ddgs:
+            with DDGS(proxies=proxies, timeout=30) as ddgs:
                 for query in querys:
-                    query = query.replace('$query',fullname)
-                    generator_ddg = ddgs.text(query,region="se-sv")
+                    query = query.replace('$query', fullname)
+                    generator_ddg = ddgs.text(query, region="se-sv")
                     for r in generator_ddg:
-                        if specialized_filter(r['href'],platform):
+                        if specialized_filter(r['href'], platform):
                             r['url'] = r['href']
                             r["platform"] = platform
                             del r['href']
@@ -73,9 +88,8 @@ class SearchResult:
 
         except Exception as ex:
             print(f"**Error in search result # **: {str(ex)}")
-        
-        return result
 
+        return result
 
     @staticmethod
     def search_image(fullname, platform):
@@ -89,7 +103,7 @@ class SearchResult:
         }
         with DDGS(proxies=proxies, timeout=30) as ddgs:
             for query in querys:
-                query = query.replace('$query',fullname)
+                query = query.replace('$query', fullname)
 
                 try:
                     keywords = query
@@ -112,24 +126,34 @@ class SearchResult:
                     print(str(ex))
 
         return result
-    
-    def run(self,platform):
-        name_generator = self.generate_name()
-        mongoconnector =  MongoDBConnector()
+
+    def run(self, platform):
+        mongoconnector = MongoDBConnector()
         with self.cacher as cacher:
+            indice_log = cacher.get([f'Sweden:{platform}']) or 0
+            name_generator = self.generate_name_special(indice_log)
+
             for _ in range(100000):
-                random_name = next(name_generator)
-                combined_key = f"{random_name.lower()}:{platform}:text"
+                full_name, index = next(name_generator)
+                cacher.insert([f'Sweden:{platform}'], index)
+                combined_key = f"{full_name.lower()}:{platform}:v2"
                 result = cacher.get([combined_key]) or {}
                 if result:
                     print("ERROR : repeated")
                     continue
 
                 else:
-                    result = SearchResult().search_query_platform(random_name,platform)
+                    result = SearchResult().search_query_platform(full_name, platform)
                     with mongoconnector as connector:
-                        connector.bulk_upsert_updated('serp_result_image', result, 'url')
+                        connector.bulk_upsert_updated('scrapped_profiles_v2', result, 'url')
+                    # value = [{
+                    #     "fullname": full_name,
+                    #     "country_code": "SE",
+                    # }]
+                    # with mongoconnector as connector:
+                    #     connector.bulk_upsert_updated('nameset_v2',value, 'fullname')
                     cacher.insert(combined_key, True)
+
 
 def run_worker(target):
     search_result = SearchResult()
@@ -139,10 +163,12 @@ def run_worker(target):
 
 def main():
     max_processes = 10  # Adjust this based on your needs
-    targets = ["facebook","linkedin", "twitter", "tiktok","instagram","pinterest","reddit","quora","badoo","snapchat"]
+    # targets = ["facebook","linkedin", "twitter", "tiktok","instagram","pinterest","reddit","quora","badoo","snapchat"]
+    targets = ["facebook","linkedin", "twitter", "tiktok","instagram"]
+    # targets = ["linkedin"]
     with concurrent.futures.ProcessPoolExecutor(max_processes) as executor:
         # Submit each task to the process pool
-        results = [executor.submit(run_worker,target) for target in targets]
+        results = [executor.submit(run_worker, target) for target in targets]
 
 
 if __name__ == "__main__":

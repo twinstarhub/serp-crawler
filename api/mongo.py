@@ -157,14 +157,8 @@ class MongoDBConnector:
         current_time = datetime.utcnow()  # Get the current UTC time
         for record in documents:
             link_filter = {filter_field: record[filter_field]}
-
-             # Check if "created_at" already exists; if not, add it
-            if "created_at" not in record:
-                record["created_at"] = current_time
-            # Always update "updated_at" with the current time
-                record["updated_at"] = current_time
-
-
+            record["updated_at"] = current_time
+            
             bulk_operations.append(
                 UpdateOne(filter=link_filter, update={"$set": record}, upsert=True)
             )
